@@ -67,6 +67,6 @@ jobs:
           script: |
             cd C:\Users\AMD\rcc-hiros-demo
             docker compose pull app cloudflared
-            docker compose run --rm --no-deps app npx prisma db push --skip-generate
+            docker compose run --rm --no-deps app npx prisma db push
             docker compose up -d --remove-orphans app cloudflared
             docker image prune -f
