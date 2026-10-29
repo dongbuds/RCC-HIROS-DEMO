@@ -59,7 +59,7 @@ jobs:
     runs-on: [self-hosted, windows, rcc-demo-host]   # runs ON the target server — no SSH, no secrets
     steps:
       - name: Deploy local Docker stack
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           Set-Location C:\Users\AMD\rcc-hiros-demo
