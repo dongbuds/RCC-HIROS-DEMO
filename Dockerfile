@@ -10,6 +10,7 @@ COPY package.json package-lock.json prisma.config.ts ./
 COPY prisma ./prisma
 # prisma.config.ts validation requires DATABASE_URL to exist; build-time placeholder only
 ENV DATABASE_URL="mysql://placeholder:placeholder@127.0.0.1:3306/placeholder"
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN npm ci --no-audit --no-fund
 
 FROM node:22-slim AS build
@@ -17,11 +18,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    DATABASE_URL="mysql://placeholder:placeholder@127.0.0.1:3306/placeholder"
+    DATABASE_URL="mysql://placeholder:placeholder@127.0.0.1:3306/placeholder" \
+    JWT_SECRET="build-time-placeholder-secret" \
+    NEXT_PUBLIC_KIOSK_SERVICE_URL="http://127.0.0.1:8765"
 RUN npx prisma generate && npm run build
 
 FROM node:22-slim AS runner
 WORKDIR /app
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app ./
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

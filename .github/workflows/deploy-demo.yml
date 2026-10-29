@@ -28,12 +28,14 @@ jobs:
           npm ci --no-audit --no-fund
           npx prisma generate
         env:
-          DATABASE_URL: "mysql://ci:ci@localhost:3306/ci"   # not used at build time
+          DATABASE_URL: "mysql://ci:ci@localhost:3306/ci"   # build-time placeholder only
 
       - name: Build (validates the app compiles)
         run: npm run build
         env:
           DATABASE_URL: "mysql://ci:ci@localhost:3306/ci"
+          JWT_SECRET: "ci-placeholder-secret"
+          NEXT_PUBLIC_KIOSK_SERVICE_URL: "http://127.0.0.1:8765"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
