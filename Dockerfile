@@ -27,6 +27,10 @@ FROM node:22-slim AS runner
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app ./
+# Standalone server.js resolves static assets relative to its own directory:
+# place them there too, while full node_modules stay at /app for the prisma CLI.
+RUN cp -r /app/.next/static /app/.next/standalone/.next/static \
+    && cp -r /app/public /app/.next/standalone/public
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
