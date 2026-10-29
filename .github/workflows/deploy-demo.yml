@@ -1,0 +1,70 @@
+name: CI/CD - RCC-HIROS-DEMO
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # allow manual redeploys from the Actions tab
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/dongbuds/rcc-hiros-demo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps + generate Prisma client
+        run: |
+          npm ci --no-audit --no-fund
+          npx prisma generate
+        env:
+          DATABASE_URL: "mysql://ci:ci@localhost:3306/ci"   # not used at build time
+
+      - name: Build (validates the app compiles)
+        run: npm run build
+        env:
+          DATABASE_URL: "mysql://ci:ci@localhost:3306/ci"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          push: true
+          tags: ${{ env.IMAGE }}:latest
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Windows host over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd C:\Users\AMD\rcc-hiros-demo
+            docker compose pull app cloudflared
+            docker compose run --rm --no-deps app npx prisma db push --skip-generate
+            docker compose up -d --remove-orphans app cloudflared
+            docker image prune -f

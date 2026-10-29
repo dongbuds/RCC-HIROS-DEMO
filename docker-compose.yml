@@ -47,7 +47,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: rcc-hiros-demo-tunnel
     restart: unless-stopped
-    command: tunnel run --token ${TUNNEL_TOKEN}
+    command: ["tunnel", "run", "--token", "${TUNNEL_TOKEN}"]
     depends_on:
       - app
 
