@@ -56,17 +56,18 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows, rcc-demo-host]   # runs ON the target server — no SSH, no secrets
     steps:
-      - name: Deploy to Windows host over SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd C:\Users\AMD\rcc-hiros-demo
-            docker compose pull app cloudflared
-            docker compose run --rm --no-deps app npx prisma db push
-            docker compose up -d --remove-orphans app cloudflared
-            docker image prune -f
+      - name: Deploy local Docker stack
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-Location C:\Users\AMD\rcc-hiros-demo
+          docker compose pull cloudflared
+          docker compose pull app
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "GHCR pull failed - falling back to locally built image (until package is public or docker login is done)"
+          }
+          docker compose run --rm --no-deps app npx prisma db push
+          docker compose up -d --remove-orphans app cloudflared
+          docker image prune -f
