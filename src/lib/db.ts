@@ -1,12 +1,35 @@
 import { PrismaClient } from "../generated/prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
+// Parse DATABASE_URL (mysql://user:pass@host:port/db) with graceful fallbacks
+// to the original local XAMPP values (localhost / root / rcc_hiros), so this
+// works both in the Docker stack (host "db") and as a bare dev server.
+function parseDatabaseUrl(url: string | undefined) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const database = u.pathname?.replace(/^\//, "");
+    if (!database) return null;
+    return {
+      host: u.hostname || "localhost",
+      port: Number(u.port || 3306),
+      user: decodeURIComponent(u.username || "root"),
+      password: decodeURIComponent(u.password || ""),
+      database,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const fromUrl = parseDatabaseUrl(process.env.DATABASE_URL);
+
 const adapter = new PrismaMariaDb({
-  host: "localhost",
-  port: 3306,
-  user: "root",
-  password: "",
-  database: "rcc_hiros",
+  host: fromUrl?.host ?? "localhost",
+  port: fromUrl?.port ?? 3306,
+  user: fromUrl?.user ?? "root",
+  password: fromUrl?.password ?? "",
+  database: fromUrl?.database ?? "rcc_hiros",
   connectionLimit: 10,
 });
 
