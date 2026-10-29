@@ -1,0 +1,55 @@
+name: rcc-hiros-demo   # Compose project name — hard-isolated from any other stacks
+
+services:
+  db:
+    image: mariadb:11
+    container_name: rcc-hiros-demo-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: rcc_hiros_demo
+      MARIADB_USER: rcc_demo
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - rcc_demo_db_data:/var/lib/mysql
+    ports:
+      - "3307:3306"            # host 3307 — must not clash with XAMPP MySQL on 3306
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  app:
+    image: ghcr.io/dongbuds/rcc-hiros-demo:latest
+    build:
+      context: .
+      target: runner           # `docker compose build` works pre-CI for first bring-up
+    container_name: rcc-hiros-demo-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://rcc_demo:${DB_PASSWORD}@db:3306/rcc_hiros_demo
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3001:3000"            # demo on 3001; original HIROS keeps 3000
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: rcc-hiros-demo-tunnel
+    restart: unless-stopped
+    command: tunnel run --token ${TUNNEL_TOKEN}
+    depends_on:
+      - app
+
+volumes:
+  rcc_demo_db_data:
